@@ -1,6 +1,6 @@
 # Dados de teste do fungiflow
 
-Datasets pequenos para validar o pipeline de ponta a ponta sem precisar de dados próprios. Os dois primeiros são herdados do bacflow (genomas bacterianos, úteis apenas enquanto os módulos ainda não foram trocados pelos equivalentes fúngicos); o terceiro é o dataset fúngico real do projeto. Todos cabem em `--t 4` e rodam em poucos minutos numa máquina comum.
+Datasets pequenos para validar o pipeline de ponta a ponta sem precisar de dados próprios. Os dois primeiros são herdados do bacflow (genomas bacterianos, úteis apenas enquanto os módulos ainda não foram trocados pelos equivalentes fúngicos); os dois seguintes são datasets fúngicos do projeto — um haploide/homozigoto, outro heterozigótico sintético (par de haplótipos divergentes) para validar o branch de detecção de ploidia. Todos cabem em `--t 4` e rodam em poucos minutos numa máquina comum.
 
 ## `mycoplasma_genitalium_synthetic/` — rápido, sintético a partir de sequência real
 
@@ -59,6 +59,27 @@ nextflow run fungiflow.nf --t 4 \
     --genome_size 12.16m \
     --sample_name scerevisiae_test \
     --reference genome_test/saccharomyces_cerevisiae_synthetic/reference.fasta
+```
+
+## `saccharomyces_cerevisiae_heterozygous/` — dataset heterozigótico/poliploide sintético
+
+- **Objetivo:** validar o branch de detecção de ploidia do fungiflow (GenomeScope2/Smudgeplot pré-montagem, purge_dups/nQuire pós-montagem — ver plano de poliploidia na página Notion do projeto). O dataset `saccharomyces_cerevisiae_synthetic/` é essencialmente haploide/homozigoto (cepa de laboratório S288C) e não serve para isso.
+- **Como foi construído:** a partir da mesma referência S288C/R64 ([GCF_000146045.2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000146045.2/)) usada no dataset haploide, tratada como haplótipo A (`hapA.fasta`). Um haplótipo B divergente (`hapB.fasta`) foi gerado com `scripts/mutate_haplotype.py` (script novo deste projeto, SNPs pontuais aleatórios, sem indels), introduzindo **1.5% de divergência** (182.321 SNPs, seed 42) — dentro da faixa típica de heterozigose reportada para leveduras heterozigóticas/híbridas na literatura.
+- **Reads:** gerados independentemente para cada haplótipo e depois combinados num único par de arquivos, simulando o que se obteria sequenciando uma célula real com dois haplótipos distintos (amostragem aleatória de qualquer uma das cópias):
+  - Short reads (`wgsim`, 150 bp pareado, erro ~0.5%): ~15x de hapA (seed 42) + ~15x de hapB (seed 43) = **~30x combinado** — mesma escala do dataset haploide.
+  - Long reads (`badread`, perfil `random`/`ideal`): ~3.5x de hapA (seed 42) + ~3.5x de hapB (seed 43) = **~7x combinado** — mesma escala do dataset haploide; gerados diretamente na cobertura alvo, sem precisar de subamostragem pós-hoc.
+- **Arquivos extra:** `hapA.fasta`/`hapB.fasta` (os dois haplótipos "verdadeiros", mantidos para permitir conferir se a chamada de ploidia bate com a divergência real introduzida). `reference.fasta` é uma cópia de `hapA.fasta`, mantida só por convenção de compatibilidade com o pipeline (`--reference`); não representa uma referência "correta" única para um genoma heterozigótico de verdade.
+- **Status:** dataset pronto (07/08/2026); ainda não validado por nenhuma ferramenta de ploidia, porque essas ferramentas (GenomeScope2, Smudgeplot, purge_dups, nQuire) ainda não foram implementadas no pipeline — esse dataset é o desbloqueador (passo 1 do plano de poliploidia), não uma validação em si.
+- **Resultado esperado quando o branch de ploidia existir:** GenomeScope2/Smudgeplot devem reportar heterozigose ≈1.5% e um padrão de ploidia `AB` (diploide), não `AA` (haploide) como no dataset `_synthetic`.
+
+```bash
+nextflow run fungiflow.nf --t 4 \
+    --long_reads genome_test/saccharomyces_cerevisiae_heterozygous/long_reads.fastq.gz \
+    --short_reads_1 genome_test/saccharomyces_cerevisiae_heterozygous/short_reads_1.fastq.gz \
+    --short_reads_2 genome_test/saccharomyces_cerevisiae_heterozygous/short_reads_2.fastq.gz \
+    --genome_size 12.16m \
+    --sample_name scerevisiae_het_test \
+    --reference genome_test/saccharomyces_cerevisiae_heterozygous/reference.fasta
 ```
 
 ## Sem `--reference`
