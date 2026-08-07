@@ -3,7 +3,7 @@
 process FASTQC_RAW {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/fastqc_raw" }, mode: 'copy'
 
     input:
@@ -21,7 +21,7 @@ process FASTQC_RAW {
 process FASTQC_TRIMMED {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/fastqc_trimmed" }, mode: 'copy'
 
     input:

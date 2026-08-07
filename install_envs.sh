@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Mesmo banner do bacflow.nf/README — texto puro, sem cores ANSI.
+# Mesmo banner do fungiflow.nf/README — texto puro, sem cores ANSI.
 cat <<'BANNER'
 
 ██████╗   █████╗   ██████╗ ███████╗ ██╗       ██████╗  ██╗    ██╗
@@ -60,27 +60,27 @@ fi
 echo "Usando: ${PKG}"
 echo ""
 
-step_start "Instalando bacflow-tools"
+step_start "Instalando fungiflow-tools"
 ${PKG} env create -f "${SCRIPT_DIR}/envs/tools.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/tools.yaml" --prune
 step_end
 
-step_start "Instalando bacflow-medaka"
+step_start "Instalando fungiflow-medaka"
 ${PKG} env create -f "${SCRIPT_DIR}/envs/medaka.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/medaka.yaml" --prune
 step_end
 
-step_start "Instalando bacflow-checkm2"
+step_start "Instalando fungiflow-checkm2"
 ${PKG} env create -f "${SCRIPT_DIR}/envs/checkm2.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/checkm2.yaml" --prune
 step_end
 
-step_start "Instalando bacflow-bakta"
+step_start "Instalando fungiflow-bakta"
 ${PKG} env create -f "${SCRIPT_DIR}/envs/bakta.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/bakta.yaml" --prune
 step_end
 
-step_start "Instalando bacflow-gtdbtk"
+step_start "Instalando fungiflow-gtdbtk"
 ${PKG} env create -f "${SCRIPT_DIR}/envs/gtdbtk.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/gtdbtk.yaml" --prune
 step_end
@@ -88,7 +88,7 @@ step_end
 # Bancos de dados (CheckM2 ~1.7GB, Bakta ~84GB, GTDB-Tk ~94GB) são grandes
 # demais pra bloquear a instalação aqui — download_databases.sh roda em
 # background (nohup + disown, sobrevive à sessão SSH terminar) e marca cada
-# base concluída em db_status/<nome>.done, que o bacflow.nf confere antes de
+# base concluída em db_status/<nome>.done, que o fungiflow.nf confere antes de
 # rodar. Idempotente: já rodou antes e a base já está lá → marca na hora,
 # sem baixar de novo.
 step_start "Disparando downloads de bancos em background (CheckM2/Bakta/GTDB-Tk)"
@@ -105,19 +105,19 @@ echo ""
 printf "Instalação concluída em %02d:%02d\n" $((TOTAL_ELAPSED / 60)) $((TOTAL_ELAPSED % 60))
 echo ""
 echo "Ambientes instalados:"
-${PKG} env list | grep -E 'bacflow'
+${PKG} env list | grep -E 'fungiflow'
 echo ""
 echo "Para usar o nextflow instalado no ambiente, adicione ao seu ~/.bashrc:"
-echo "  alias nextflow='${PKG} run -n bacflow-tools nextflow'"
+echo "  alias nextflow='${PKG} run -n fungiflow-tools nextflow'"
 echo ""
 echo "Ou ative o ambiente manualmente antes de rodar:"
-echo "  ${PKG} activate bacflow-tools"
+echo "  ${PKG} activate fungiflow-tools"
 echo ""
 echo "IMPORTANTE: os bancos de dados (CheckM2/Bakta/GTDB-Tk) continuam baixando"
 echo "em background — a instalação dos ambientes terminou, mas o pipeline só"
 echo "roda de fato quando db_status/checkm2.done e db_status/bakta.done existirem"
-echo "(o bacflow.nf verifica isso antes de começar e avisa com uma mensagem clara"
+echo "(o fungiflow.nf verifica isso antes de começar e avisa com uma mensagem clara"
 echo "se algum ainda estiver faltando, em vez de quebrar no meio de um processo)."
 echo ""
 echo "Pronto. Execute o pipeline com:"
-echo "  nextflow run ${SCRIPT_DIR}/bacflow.nf --help"
+echo "  nextflow run ${SCRIPT_DIR}/fungiflow.nf --help"

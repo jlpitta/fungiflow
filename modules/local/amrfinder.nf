@@ -3,7 +3,7 @@
 process MATCH_ORGANISM {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-bakta"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-bakta"
     publishDir { "${params.outdir}/${sample}/taxonomy/amrfinder_organism" }, mode: 'copy'
 
     input:
@@ -27,7 +27,7 @@ process MATCH_ORGANISM {
 process AMRFINDER_PREPOLISH {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-bakta"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-bakta"
     publishDir { "${params.outdir}/${sample}/amr/amrfinder_prepolish" }, mode: 'copy'
 
     input:
@@ -59,7 +59,7 @@ process AMRFINDER_PREPOLISH {
 process AMRFINDER_POSTPOLISH {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-bakta"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-bakta"
     publishDir { "${params.outdir}/${sample}/amr/amrfinder_postpolish" }, mode: 'copy'
 
     input:

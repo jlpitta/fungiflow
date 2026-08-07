@@ -3,7 +3,7 @@
 process QUAST {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/quast" }, mode: 'copy'
 
     input:
@@ -27,7 +27,7 @@ process QUAST {
 process QUAST_PREPOLISH {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/quast_prepolish" }, mode: 'copy'
 
     input:
@@ -51,7 +51,7 @@ process QUAST_PREPOLISH {
 process QUAST_POSTPOLISH {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/quast_postpolish" }, mode: 'copy'
 
     input:

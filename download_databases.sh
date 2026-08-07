@@ -42,7 +42,7 @@ elif [ -f "${CHECKM2_DB}" ]; then
     echo "    banco já presente em ${CHECKM2_DB}, marcando sem baixar de novo."
     touch "${DB_STATUS_DIR}/checkm2.done"
 else
-    conda activate bacflow-checkm2
+    conda activate fungiflow-checkm2
     if retry_cmd checkm2 database --download --path "${HOME}/checkm2_db"; then
         touch "${DB_STATUS_DIR}/checkm2.done"
         echo "    concluído."
@@ -57,7 +57,7 @@ elif [ -d "${BAKTA_DB}" ] && [ -n "$(ls -A "${BAKTA_DB}" 2>/dev/null)" ]; then
     echo "    banco já presente em ${BAKTA_DB}, marcando sem baixar de novo."
     touch "${DB_STATUS_DIR}/bakta.done"
 else
-    conda activate bacflow-bakta
+    conda activate fungiflow-bakta
     if retry_cmd bakta_db download --output "${HOME}/bakta_db" --type full; then
         touch "${DB_STATUS_DIR}/bakta.done"
         echo "    concluído."
@@ -101,8 +101,8 @@ fi
 
 echo "=== $(date -Iseconds) — AMRFinderPlus ==="
 # Banco próprio (não o embutido no Bakta) — versionado independente, pra não
-# acoplar a atualização do Bakta com o módulo de AMR do bacflow. Usa o env
-# bacflow-bakta mesmo (já traz amrfinder_update como dependência do Bakta),
+# acoplar a atualização do Bakta com o módulo de AMR do fungiflow. Usa o env
+# fungiflow-bakta mesmo (já traz amrfinder_update como dependência do Bakta),
 # sem criar um quarto ambiente conda só pra isso.
 AMRFINDER_DIR="${HOME}/amrfinder_db"
 if [ -f "${DB_STATUS_DIR}/amrfinder.done" ]; then
@@ -111,7 +111,7 @@ elif [ -L "${AMRFINDER_DIR}/latest" ] || { [ -d "${AMRFINDER_DIR}" ] && [ -n "$(
     echo "    banco já presente em ${AMRFINDER_DIR}, marcando sem baixar de novo."
     touch "${DB_STATUS_DIR}/amrfinder.done"
 else
-    conda activate bacflow-bakta
+    conda activate fungiflow-bakta
     if retry_cmd amrfinder_update -d "${AMRFINDER_DIR}"; then
         touch "${DB_STATUS_DIR}/amrfinder.done"
         echo "    concluído."

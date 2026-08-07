@@ -48,7 +48,9 @@
 
 # fungiflow
 
-[Nextflow](https://www.nextflow.io/) DSL2 pipeline for **bacterial genome assembly**, with two automatic paths depending on the data available per sample: **long-read with hybrid polishing** (long reads + Illumina short reads, via Flye) or **short-read-only** (Illumina only, via Unicycler). Combines assembly, polishing and quality-assessment tools into an automated flow with Conda environment management.
+[Nextflow](https://www.nextflow.io/) DSL2 pipeline for **fungal genome assembly**, fork of [bacflow](https://github.com/jlpitta/bacflow) (its bacterial counterpart), with two automatic paths depending on the data available per sample: **long-read with hybrid polishing** (long reads + Illumina short reads, via Flye) or **short-read-only** (Illumina only, via Unicycler). Combines assembly, polishing and quality-assessment tools into an automated flow with Conda environment management.
+
+> **Status:** mid-transition from the bacflow fork. Assembly/polishing (Flye, Unicycler, Racon, Medaka, Polypolish, NextPolish) and QC (FastQC, NanoStat, NanoComp, QUAST, MultiQC) are shared and already fungal-ready. Annotation/taxonomy/completeness (Bakta, GTDB-Tk, CheckM2, AMRFinderPlus) are still the original bacterial tools, pending replacement by Funannotate, ITSx+UNITE and EukCC — see the project's implementation plan for the current stage.
 
 
 ---
@@ -184,54 +186,54 @@ See [Read QC](#read-qc-raw-vs-trimmed) for details on where each report is gener
 
 - [Mamba](https://mamba.readthedocs.io/), [Micromamba](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html) or [Conda](https://docs.conda.io/) — the install script automatically detects whichever is available
 
-> Nextflow is installed automatically inside the `bacflow-tools` environment. There is no need to install it separately.
+> Nextflow is installed automatically inside the `fungiflow-tools` environment. There is no need to install it separately.
 
 ### Clone and install environments
 
 ```bash
-git clone https://github.com/jlpitta/bacflow
-cd bacflow
+git clone https://github.com/jlpitta/fungiflow
+cd fungiflow
 
 # install the conda environments (required before the first run)
 bash install_envs.sh
 ```
 
-The script automatically detects `mamba`, `micromamba` or `conda` (in that order of preference), installs the five environments (`bacflow-tools`, `bacflow-medaka`, `bacflow-checkm2`, `bacflow-bakta`, `bacflow-gtdbtk`) and prints instructions for setting up `nextflow` in your terminal.
+The script automatically detects `mamba`, `micromamba` or `conda` (in that order of preference), installs the five environments (`fungiflow-tools`, `fungiflow-medaka`, `fungiflow-checkm2`, `fungiflow-bakta`, `fungiflow-gtdbtk`) and prints instructions for setting up `nextflow` in your terminal.
 
 **Databases (CheckM2 ~1.7GB, Bakta ~84GB, GTDB-Tk ~94GB, AMRFinderPlus ~240MB) download in the background**, not blocking the rest of the install — `install_envs.sh` launches `download_databases.sh` via `nohup`/`disown` (survives the terminal/SSH session closing) and returns immediately. Each database marks `db_status/<name>.done` on completion; skipped automatically on a re-run if already present. Check progress with:
 ```bash
 tail -f logs/db_downloads.log      # live progress
 ls db_status/                      # what's already done
 ```
-`bacflow.nf` checks `db_status/checkm2.done` and `db_status/bakta.done` before running and fails with a clear message if a download is still in progress, instead of failing deep inside a process. (GTDB-Tk's database downloads too, ahead of the taxonomy module that will consume it.)
+`fungiflow.nf` checks `db_status/checkm2.done` and `db_status/bakta.done` before running and fails with a clear message if a download is still in progress, instead of failing deep inside a process. (GTDB-Tk's database downloads too, ahead of the taxonomy module that will consume it.)
 
 There are two options for making `nextflow` available in your terminal:
 
 **Option A — permanent alias** (recommended): add to `~/.bashrc`:
 ```bash
-alias nextflow='mamba run -n bacflow-tools nextflow'
+alias nextflow='mamba run -n fungiflow-tools nextflow'
 # or, if using micromamba:
-alias nextflow='micromamba run -n bacflow-tools nextflow'
+alias nextflow='micromamba run -n fungiflow-tools nextflow'
 ```
 Then: `source ~/.bashrc`. From then on `nextflow` works directly in any terminal.
 
 **Option B — activate the environment manually** before each use:
 ```bash
-mamba activate bacflow-tools   # or: micromamba activate / conda activate
-nextflow run bacflow.nf ...
+mamba activate fungiflow-tools   # or: micromamba activate / conda activate
+nextflow run fungiflow.nf ...
 ```
 
 ```bash
 # check installed environments
-mamba env list | grep bacflow
-# bacflow-tools    ~/miniforge3/envs/bacflow-tools
-# bacflow-medaka   ~/miniforge3/envs/bacflow-medaka
-# bacflow-checkm2  ~/miniforge3/envs/bacflow-checkm2
-# bacflow-bakta    ~/miniforge3/envs/bacflow-bakta
-# bacflow-gtdbtk   ~/miniforge3/envs/bacflow-gtdbtk
+mamba env list | grep fungiflow
+# fungiflow-tools    ~/miniforge3/envs/fungiflow-tools
+# fungiflow-medaka   ~/miniforge3/envs/fungiflow-medaka
+# fungiflow-checkm2  ~/miniforge3/envs/fungiflow-checkm2
+# fungiflow-bakta    ~/miniforge3/envs/fungiflow-bakta
+# fungiflow-gtdbtk   ~/miniforge3/envs/fungiflow-gtdbtk
 ```
 
-> **Important:** modules reference the environments by their **absolute path** (`$HOME/miniforge3/envs/bacflow-tools` / `bacflow-medaka` / `bacflow-checkm2` / `bacflow-bakta` / `bacflow-gtdbtk`), assuming a standard Miniforge/Mambaforge installation under the user's `$HOME` — not by name or by the YAML path (referencing by name alone makes Nextflow try to *install a package* with that name from bioconda, instead of reusing the environment you already created). If your Conda/Mamba is installed somewhere else, adjust the `conda` directive in each `modules/local/*.nf`. Pre-installation is mandatory before the first run.
+> **Important:** modules reference the environments by their **absolute path** (`$HOME/miniforge3/envs/fungiflow-tools` / `fungiflow-medaka` / `fungiflow-checkm2` / `fungiflow-bakta` / `fungiflow-gtdbtk`), assuming a standard Miniforge/Mambaforge installation under the user's `$HOME` — not by name or by the YAML path (referencing by name alone makes Nextflow try to *install a package* with that name from bioconda, instead of reusing the environment you already created). If your Conda/Mamba is installed somewhere else, adjust the `conda` directive in each `modules/local/*.nf`. Pre-installation is mandatory before the first run.
 
 ---
 
@@ -239,21 +241,21 @@ mamba env list | grep bacflow
 
 | Environment | YAML | Tools |
 |---|---|---|
-| `bacflow-tools` | `envs/tools.yaml` | nextflow=26.04.6, nanofilt, nanostat, fastp, fastqc=0.12.1, nanocomp=1.25.6, busco=6.1.0, flye, unicycler, minimap2, racon, seqkit, samtools, polypolish, nextpolish, bwa, quast, multiqc=1.35 |
-| `bacflow-medaka` | `envs/medaka.yaml` | medaka=1.11.3, setuptools=69.5.1 (**isolated** — TensorFlow/ONNX conflict with bioconda) |
-| `bacflow-checkm2` | `envs/checkm2.yaml` | checkm2=1.1.0 (**isolated** — real dependency conflict with `bacflow-tools`, discovered in practice) |
-| `bacflow-bakta` | `envs/bakta.yaml` | bakta=1.12.0 (installed cleanly on first try — no dependency conflict found) |
-| `bacflow-gtdbtk` | `envs/gtdbtk.yaml` | gtdbtk=2.7.2 (installed cleanly on first try — no dependency conflict found) |
+| `fungiflow-tools` | `envs/tools.yaml` | nextflow=26.04.6, nanofilt, nanostat, fastp, fastqc=0.12.1, nanocomp=1.25.6, busco=6.1.0, flye, unicycler, minimap2, racon, seqkit, samtools, polypolish, nextpolish, bwa, quast, multiqc=1.35 |
+| `fungiflow-medaka` | `envs/medaka.yaml` | medaka=1.11.3, setuptools=69.5.1 (**isolated** — TensorFlow/ONNX conflict with bioconda) |
+| `fungiflow-checkm2` | `envs/checkm2.yaml` | checkm2=1.1.0 (**isolated** — real dependency conflict with `fungiflow-tools`, discovered in practice) |
+| `fungiflow-bakta` | `envs/bakta.yaml` | bakta=1.12.0 (installed cleanly on first try — no dependency conflict found) |
+| `fungiflow-gtdbtk` | `envs/gtdbtk.yaml` | gtdbtk=2.7.2 (installed cleanly on first try — no dependency conflict found) |
 
 Medaka is kept in an isolated environment out of necessity, since its dependencies (TensorFlow, ONNX) conflict with bioconda-channel packages. The `setuptools=69.5.1` pin is required because newer versions removed the `pkg_resources` module, which `medaka=1.11.3` depends on.
 
-CheckM2 also needs an isolated environment: trying to install it inside `bacflow-tools` produces an unresolvable dependency conflict (`abseil-cpp`/`libboost`, pulled in by CheckM2's ML dependencies — scikit-learn, lightgbm). Besides the environment, CheckM2 requires a DIAMOND database (~1.7 GB) downloaded separately.
+CheckM2 also needs an isolated environment: trying to install it inside `fungiflow-tools` produces an unresolvable dependency conflict (`abseil-cpp`/`libboost`, pulled in by CheckM2's ML dependencies — scikit-learn, lightgbm). Besides the environment, CheckM2 requires a DIAMOND database (~1.7 GB) downloaded separately.
 
 Bakta requires its own database too (~84 GB uncompressed, `--type full`) — like CheckM2's, `install_envs.sh` downloads it automatically, in the background (see [Installation](#installation)). Bakta's database happens to bundle its own AMRFinderPlus database internally (`amrfinderplus-db/`, used for the AMR annotations Bakta reports as part of its own output) — worth knowing if you're also looking at AMRFinderPlus standalone.
 
 GTDB-Tk requires the largest of the four databases (~94 GB uncompressed) — also downloaded automatically in the background. The GTDB-Tk software version is tied to a specific compatible data release (this repo currently uses gtdbtk=2.7.2 with release232); if the pinned software version is ever bumped, the database release needs to be checked for compatibility and `--gtdbtk_db` (and possibly `download_databases.sh`'s download URL) updated to match.
 
-AMRFinderPlus (used to pick the right organism-specific database for genomic-surveillance reporting — see `bin/gtdb_to_amrfinder_organism.py`) doesn't get its own conda environment: `bacflow-bakta` already provides an `amrfinder`/`amrfinder_update` binary as a Bakta dependency, so it's reused directly instead of adding a fifth environment. Its own database (~240 MB, independently versioned from the copy bundled inside Bakta's database, so an update to one doesn't silently change the other) is downloaded the same way as the rest, in the background.
+AMRFinderPlus (used to pick the right organism-specific database for genomic-surveillance reporting — see `bin/gtdb_to_amrfinder_organism.py`) doesn't get its own conda environment: `fungiflow-bakta` already provides an `amrfinder`/`amrfinder_update` binary as a Bakta dependency, so it's reused directly instead of adding a fifth environment. Its own database (~240 MB, independently versioned from the copy bundled inside Bakta's database, so an update to one doesn't silently change the other) is downloaded the same way as the rest, in the background.
 
 > `NanoComp` comes from the bioconda package **`nanocomp`**, not `nanoplot` (which provides `NanoPlot`, a different tool — a detailed single-dataset report, without comparison).
 
@@ -292,7 +294,7 @@ The pipeline accepts two mutually exclusive input forms:
 **Long reads + short reads (hybrid, Flye):**
 
 ```bash
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 32 \
     --long_reads lr.fastq.gz \
     --genome_size 5m \
@@ -304,7 +306,7 @@ nextflow run bacflow.nf -resume \
 **Short reads only (short-read-only, Unicycler) — no `--long_reads` or `--genome_size`:**
 
 ```bash
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 32 \
     --sample_name sample01 \
     --short_reads_1 r1.fastq.gz \
@@ -316,7 +318,7 @@ The pipeline automatically detects the absence of `--long_reads` and assembles w
 ### Multi-sample — CSV samplesheet
 
 ```bash
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --samplesheet samples.csv
 ```
@@ -440,14 +442,14 @@ Each flow can be run in two ways:
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 16 \
     --long_reads lr.fastq.gz \
     --genome_size 5m \
     --sample_name sample01
 
 # multi-sample (samples.csv: sample,long_reads,genome_size)
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --samplesheet samples.csv
 ```
@@ -456,7 +458,7 @@ nextflow run bacflow.nf -resume \
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 16 \
     --long_reads lr.fastq.gz \
     --genome_size 5m \
@@ -464,7 +466,7 @@ nextflow run bacflow.nf -resume \
     --use_racon
 
 # multi-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --samplesheet samples.csv \
     --use_racon
@@ -476,7 +478,7 @@ nextflow run bacflow.nf -resume \
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 32 \
     --long_reads lr.fastq.gz \
     --short_reads_1 r1.fastq.gz \
@@ -485,7 +487,7 @@ nextflow run bacflow.nf -resume \
     --sample_name sample01
 
 # multi-sample (samples.csv: sample,long_reads,short_reads_1,short_reads_2,genome_size)
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --samplesheet samples.csv
 ```
@@ -494,7 +496,7 @@ nextflow run bacflow.nf -resume \
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 32 \
     --long_reads lr.fastq.gz \
     --short_reads_1 r1.fastq.gz \
@@ -504,7 +506,7 @@ nextflow run bacflow.nf -resume \
     --use_racon
 
 # multi-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --samplesheet samples.csv \
     --use_racon
@@ -518,14 +520,14 @@ nextflow run bacflow.nf -resume \
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 32 \
     --short_reads_1 r1.fastq.gz \
     --short_reads_2 r2.fastq.gz \
     --sample_name sample01
 
 # multi-sample (samples.csv: sample,long_reads,short_reads_1,short_reads_2,genome_size — long_reads and genome_size empty)
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --samplesheet samples.csv
 ```
@@ -536,7 +538,7 @@ nextflow run bacflow.nf -resume \
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 16 \
     --mode reference \
     --long_reads lr.fastq.gz \
@@ -544,7 +546,7 @@ nextflow run bacflow.nf -resume \
     --sample_name sample01
 
 # multi-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --mode reference \
     --samplesheet samples.csv \
@@ -555,7 +557,7 @@ nextflow run bacflow.nf -resume \
 
 ```bash
 # single-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 32 \
     --mode reference \
     --long_reads lr.fastq.gz \
@@ -565,7 +567,7 @@ nextflow run bacflow.nf -resume \
     --sample_name sample01
 
 # multi-sample
-nextflow run bacflow.nf -resume \
+nextflow run fungiflow.nf -resume \
     --t 64 \
     --mode reference \
     --samplesheet samples.csv \
@@ -640,23 +642,25 @@ profiles {
 
 | Situation | Command |
 |---|---|
-| Mamba (default) | `nextflow run bacflow.nf ...` |
-| Conda | `nextflow run bacflow.nf -profile conda ...` |
-| Micromamba | `nextflow run bacflow.nf -profile micromamba ...` |
+| Mamba (default) | `nextflow run fungiflow.nf ...` |
+| Conda | `nextflow run fungiflow.nf -profile conda ...` |
+| Micromamba | `nextflow run fungiflow.nf -profile micromamba ...` |
 
 ---
 
 ## Testing the pipeline
 
-The repository ships with ready-to-use test data in [`genome_test/`](genome_test/) — you don't need your own data to validate the installation:
+The repository ships with ready-to-use test data in [`genome_test/`](genome_test/) — you don't need your own data to validate the installation. The first two are inherited from bacflow (bacterial genomes, useful only while the fungal-specific modules haven't been swapped in yet — see Stage C in the project's implementation plan); the last two are the fungal datasets:
 
 | Dataset | What | Use |
 |---|---|---|
-| `mycoplasma_genitalium_synthetic/` | Simulated reads from a real genome (580 kb) | Quick smoke test (a few minutes) |
+| `mycoplasma_genitalium_synthetic/` | Simulated reads from a real bacterial genome (580 kb) | Quick smoke test (a few minutes) |
 | `staphylococcus_aureus_real/` | **100% real** ONT + Illumina reads, same strain, subsampled to ~25x, against a different strain's reference | Real polishing validation (slower, 2.8 Mb genome) |
+| `saccharomyces_cerevisiae_synthetic/` | Simulated reads from a real haploid/homozygous fungal genome (S288C, ~12.16 Mb) | First fungal smoke test — exercises the generic QC/assembly/polishing path |
+| `saccharomyces_cerevisiae_heterozygous/` | Simulated reads from two ~1.5%-divergent haplotypes of the same genome, combined | Validates the ploidy-detection branch (GenomeScope2/Smudgeplot, purge_dups, nQuire) once implemented |
 
 ```bash
-nextflow run bacflow.nf --t 4 \
+nextflow run fungiflow.nf --t 4 \
     --long_reads genome_test/mycoplasma_genitalium_synthetic/long_reads.fastq.gz \
     --short_reads_1 genome_test/mycoplasma_genitalium_synthetic/short_reads_1.fastq.gz \
     --short_reads_2 genome_test/mycoplasma_genitalium_synthetic/short_reads_2.fastq.gz \
@@ -665,24 +669,24 @@ nextflow run bacflow.nf --t 4 \
     --reference genome_test/mycoplasma_genitalium_synthetic/reference.fasta
 ```
 
-See [`genome_test/README.md`](genome_test/README.md) for details on origin, accessions, and a real example of results (polishing improvement measured by QUAST and CheckM2).
+See [`genome_test/README.md`](genome_test/README.md) for details on origin, accessions, and commands for all four datasets (including a real example of polishing results measured by QUAST and CheckM2).
 
 ---
 
 ## File structure
 
 ```
-bacflow/
-├── bacflow.nf                 # main DSL2 script
+fungiflow/
+├── fungiflow.nf                 # main DSL2 script
 ├── nextflow.config           # global config, parameters, profiles, CPUs
 ├── install_envs.sh           # pre-installs the conda environments
 ├── download_databases.sh     # background DB downloads (CheckM2/Bakta/GTDB-Tk/AMRFinderPlus), launched by install_envs.sh
 ├── envs/
-│   ├── tools.yaml            # → bacflow-tools
-│   ├── medaka.yaml           # → bacflow-medaka (isolated)
-│   ├── checkm2.yaml          # → bacflow-checkm2 (isolated)
-│   ├── bakta.yaml             # → bacflow-bakta (also provides amrfinder/amrfinder_update)
-│   └── gtdbtk.yaml            # → bacflow-gtdbtk
+│   ├── tools.yaml            # → fungiflow-tools
+│   ├── medaka.yaml           # → fungiflow-medaka (isolated)
+│   ├── checkm2.yaml          # → fungiflow-checkm2 (isolated)
+│   ├── bakta.yaml             # → fungiflow-bakta (also provides amrfinder/amrfinder_update)
+│   └── gtdbtk.yaml            # → fungiflow-gtdbtk
 ├── bin/
 │   ├── summarize_sample.py           # per-sample dashboard JSON parser
 │   ├── generate_dashboard.py         # aggregates the JSONs, builds dashboard.html
@@ -783,7 +787,7 @@ Structure validated with a real end-to-end run on 2026-07-18–20: synthetic dat
 
 **Resume an interrupted run:**
 ```bash
-nextflow run bacflow.nf -resume ...
+nextflow run fungiflow.nf -resume ...
 # requires: process.cache = lenient  +  a fixed workDir in nextflow.config
 ```
 

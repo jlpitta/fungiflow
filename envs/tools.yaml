@@ -1,4 +1,4 @@
-name: bacflow-tools
+name: fungiflow-tools
 channels:
   - bioconda
   - conda-forge

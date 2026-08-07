@@ -3,7 +3,7 @@
 process BAKTA {
     tag { sample }
     label 'process_medium'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-bakta"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-bakta"
     publishDir { "${params.outdir}/${sample}/annotation/bakta" }, mode: 'copy'
 
     input:

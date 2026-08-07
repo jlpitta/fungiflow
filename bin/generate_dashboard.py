@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # By João Pitta (jlpitta82@gmail.com) and Beatriz Toscano (beatriz.melo@fiocruz.br)
 # At Fiocruz-PE
-"""Aggregate per-sample summary JSONs into the final bacflow dashboard.html."""
+"""Aggregate per-sample summary JSONs into the final fungiflow dashboard.html."""
 import argparse
 import datetime
 import glob

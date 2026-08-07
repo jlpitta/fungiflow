@@ -3,7 +3,7 @@
 process NANOSTAT_RAW {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/nanostat_raw" }, mode: 'copy'
 
     input:
@@ -21,7 +21,7 @@ process NANOSTAT_RAW {
 process NANOSTAT_TRIMMED {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/nanostat_trimmed" }, mode: 'copy'
 
     input:

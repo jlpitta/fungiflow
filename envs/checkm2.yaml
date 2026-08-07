@@ -1,4 +1,4 @@
-name: bacflow-checkm2
+name: fungiflow-checkm2
 channels:
   - bioconda
   - conda-forge

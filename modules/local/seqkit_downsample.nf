@@ -3,7 +3,7 @@
 process SEQKIT_DOWNSAMPLE {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
 
     input:
     tuple val(sample), path(reads)

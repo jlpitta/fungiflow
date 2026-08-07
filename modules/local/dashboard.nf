@@ -3,7 +3,7 @@
 process SAMPLE_SUMMARY {
     tag { sample }
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/dashboard" }, mode: 'copy'
 
     input:
@@ -48,7 +48,7 @@ process SAMPLE_SUMMARY {
 process DASHBOARD {
     tag 'dashboard'
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}" }, mode: 'copy'
 
     input:

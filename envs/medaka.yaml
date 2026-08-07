@@ -1,4 +1,4 @@
-name: bacflow-medaka
+name: fungiflow-medaka
 channels:
   - bioconda
   - conda-forge

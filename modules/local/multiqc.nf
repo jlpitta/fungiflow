@@ -2,7 +2,7 @@
 // At Fiocruz-PE
 process MULTIQC {
     label 'process_low'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/multiqc" }, mode: 'copy'
 
     input:

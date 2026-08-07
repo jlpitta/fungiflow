@@ -3,7 +3,7 @@
 process BUSCO {
     tag { sample }
     label 'process_medium'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/busco" }, mode: 'copy'
 
     input:
@@ -27,7 +27,7 @@ process BUSCO {
 process BUSCO_PREPOLISH {
     tag { sample }
     label 'process_medium'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/busco_prepolish" }, mode: 'copy'
 
     input:
@@ -51,7 +51,7 @@ process BUSCO_PREPOLISH {
 process BUSCO_POSTPOLISH {
     tag { sample }
     label 'process_medium'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/qc/busco_postpolish" }, mode: 'copy'
 
     input:

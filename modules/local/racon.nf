@@ -3,7 +3,7 @@
 process RACON {
     tag { sample }
     label 'process_medium'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-tools"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-tools"
     publishDir { "${params.outdir}/${sample}/polishing/racon" }, mode: 'copy'
 
     input:

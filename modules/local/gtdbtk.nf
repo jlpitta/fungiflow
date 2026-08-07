@@ -3,7 +3,7 @@
 process GTDBTK {
     tag { sample }
     label 'process_medium'
-    conda "${System.getenv('HOME')}/miniforge3/envs/bacflow-gtdbtk"
+    conda "${System.getenv('HOME')}/miniforge3/envs/fungiflow-gtdbtk"
     publishDir { "${params.outdir}/${sample}/taxonomy/gtdbtk" }, mode: 'copy'
 
     input:

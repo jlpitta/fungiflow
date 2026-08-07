@@ -2,7 +2,7 @@
 # By João Pitta (jlpitta82@gmail.com) and Beatriz Toscano (beatriz.melo@fiocruz.br)
 # At Fiocruz-PE
 #
-# Regression suite covering the bacflow flow matrix: denovo/reference mode,
+# Regression suite covering the fungiflow flow matrix: denovo/reference mode,
 # hybrid/long-only/short-only samples, each polisher, racon on/off, the
 # pacbio (no-Medaka) path, and both CLI and --samplesheet input. Born out of
 # a real bug (v0.9.1) that only surfaced because a long-read-only run had
@@ -43,7 +43,7 @@ MYCO_REF="genome_test/mycoplasma_genitalium_synthetic/reference.fasta"
 MYCO_GSIZE="580000"
 
 source "$HOME/miniforge3/etc/profile.d/conda.sh"
-conda activate bacflow-tools
+conda activate fungiflow-tools
 
 declare -a TEST_IDS=(D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 R1 R2 R3 R4 R5 R6 S1 S2 S3 O1)
 declare -A TEST_DESC=(
@@ -113,7 +113,7 @@ for id in "${TEST_IDS[@]}"; do
   rm -rf "$outdir" "$workdir"
 
   start_ts=$(date +%s)
-  nextflow run bacflow.nf -w "$workdir" --outdir "$outdir" "${args[@]}" > "$logfile" 2>&1
+  nextflow run fungiflow.nf -w "$workdir" --outdir "$outdir" "${args[@]}" > "$logfile" 2>&1
   exit_code=$?
   end_ts=$(date +%s)
   duration=$(( end_ts - start_ts ))
