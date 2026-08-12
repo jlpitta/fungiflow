@@ -87,6 +87,9 @@ A single `--samplesheet` can freely mix hybrid, long-only and short-only samples
 ```
 Does the sample have long_reads?
 │
+├── (either path, any sample with short reads) Short reads ─► FASTP² ─► [FastK¹¹ → GenomeScope2¹¹/Smudgeplot¹¹ → PLOIDY_CALL¹¹]
+│                                                                        (qc/ploidy/, parallel, never blocks assembly)
+│
 ├── YES ──► NanoFilt¹ ──► [Flye] ──► [Racon] (opt.) ──► [Medaka] ──► [QUAST³/BUSCO⁴/CheckM2⁵/AMRFinder¹⁰ pre-polish]
 │                                                                    │
 │           Short reads (if any) ─► FASTP² ─► [Polypolish] or [NextPolish] (opt.)
@@ -105,11 +108,6 @@ Does the sample have long_reads?
                                                                           [MultiQC⁶ / Dashboard⁹]
                                                                           (end of run, all samples
                                                                            together)
-
-    (either path — any sample with short reads: right after FASTP² and in parallel with
-     everything above, not gating assembly)
-                Short reads ─► FASTP² ─► [FastK¹¹ → GenomeScope2¹¹/Smudgeplot¹¹ → PLOIDY_CALL¹¹]
-                                          (qc/ploidy/{sample}.ploidy_call.json)
 
 ¹ NanoFilt is bracketed by raw-vs-trimmed QC: NanoStat (before/after) + NanoComp
   (comparative HTML) — always runs in parallel, does not block the flow
@@ -153,9 +151,11 @@ Does the sample have long_reads?
    the generic database instead of failing
 ¹¹ FastK/GenomeScope2/Smudgeplot/PLOIDY_CALL estimate ploidy/heterozygosity
    from the cleaned short reads — a diagnostic step, not part of assembly.
-   Runs for any sample with short reads, both paths, right after FASTP,
-   fully in parallel with everything else (never blocks or is blocked by
-   Flye/Unicycler). See Ploidy/heterozygosity detection section below
+   Drawn as its own branch (not nested under YES/NO) because it runs for
+   any sample with short reads regardless of which path is taken, right
+   after its own FASTP call, fully in parallel with everything else
+   (never blocks or is blocked by Flye/Unicycler). See Ploidy/heterozygosity
+   detection section below
 ```
 
 See [Read QC](#read-qc-raw-vs-trimmed) for details on where each report is generated.
