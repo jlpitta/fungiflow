@@ -50,7 +50,7 @@
 
 [Nextflow](https://www.nextflow.io/) DSL2 pipeline for **fungal genome assembly**, fork of [bacflow](https://github.com/jlpitta/bacflow) (its bacterial counterpart), with two automatic paths depending on the data available per sample: **long-read with hybrid polishing** (long reads + Illumina short reads, via Flye) or **short-read-only** (Illumina only, via Unicycler). Combines assembly, polishing and quality-assessment tools into an automated flow with Conda environment management.
 
-> **Status:** mid-transition from the bacflow fork. Assembly/polishing (Flye, Unicycler, Racon, Medaka, Polypolish, NextPolish) and QC (FastQC, NanoStat, NanoComp, QUAST, MultiQC) are shared and already fungal-ready. Annotation/taxonomy/completeness (Bakta, GTDB-Tk, CheckM2, AMRFinderPlus) are still the original bacterial tools, pending replacement by Funannotate, ITSx+UNITE and EukCC — see the project's implementation plan for the current stage.
+> **Status:** mid-transition from the bacflow fork. Assembly/polishing (Flye, Unicycler, Racon, Medaka, Polypolish, NextPolish) and QC (FastQC, NanoStat, NanoComp, QUAST, MultiQC) are shared and already fungal-ready. Annotation/taxonomy/completeness (Bakta, GTDB-Tk, CheckM2, AMRFinderPlus) are still the original bacterial tools, pending replacement by Funannotate, ITSx+UNITE and EukCC — see the project's implementation plan for the current stage. [Ploidy/heterozygosity detection](#ploidy--heterozygosity-detection) (GenomeScope2 + Smudgeplot) is implemented and validated; acting on its output (haplotype-aware assembly, purge_dups, nQuire) is still pending.
 
 
 ---
@@ -65,6 +65,7 @@
 - [Input modes](#input-modes)
 - [Parameters](#parameters)
 - [Read QC (raw vs. trimmed)](#read-qc-raw-vs-trimmed)
+- [Ploidy / heterozygosity detection](#ploidy--heterozygosity-detection)
 - [Aggregation (MultiQC)](#aggregation-multiqc)
 - [Comparison dashboard](#comparison-dashboard)
 - [The 7 execution flows](#the-7-execution-flows)
@@ -198,7 +199,7 @@ cd fungiflow
 bash install_envs.sh
 ```
 
-The script automatically detects `mamba`, `micromamba` or `conda` (in that order of preference), installs the five environments (`fungiflow-tools`, `fungiflow-medaka`, `fungiflow-checkm2`, `fungiflow-bakta`, `fungiflow-gtdbtk`) and prints instructions for setting up `nextflow` in your terminal.
+The script automatically detects `mamba`, `micromamba` or `conda` (in that order of preference), installs the six environments (`fungiflow-tools`, `fungiflow-medaka`, `fungiflow-checkm2`, `fungiflow-bakta`, `fungiflow-gtdbtk`, `fungiflow-ploidy`) and prints instructions for setting up `nextflow` in your terminal.
 
 **Databases (CheckM2 ~1.7GB, Bakta ~84GB, GTDB-Tk ~94GB, AMRFinderPlus ~240MB) download in the background**, not blocking the rest of the install — `install_envs.sh` launches `download_databases.sh` via `nohup`/`disown` (survives the terminal/SSH session closing) and returns immediately. Each database marks `db_status/<name>.done` on completion; skipped automatically on a re-run if already present. Check progress with:
 ```bash
@@ -231,9 +232,10 @@ mamba env list | grep fungiflow
 # fungiflow-checkm2  ~/miniforge3/envs/fungiflow-checkm2
 # fungiflow-bakta    ~/miniforge3/envs/fungiflow-bakta
 # fungiflow-gtdbtk   ~/miniforge3/envs/fungiflow-gtdbtk
+# fungiflow-ploidy   ~/miniforge3/envs/fungiflow-ploidy
 ```
 
-> **Important:** modules reference the environments by their **absolute path** (`$HOME/miniforge3/envs/fungiflow-tools` / `fungiflow-medaka` / `fungiflow-checkm2` / `fungiflow-bakta` / `fungiflow-gtdbtk`), assuming a standard Miniforge/Mambaforge installation under the user's `$HOME` — not by name or by the YAML path (referencing by name alone makes Nextflow try to *install a package* with that name from bioconda, instead of reusing the environment you already created). If your Conda/Mamba is installed somewhere else, adjust the `conda` directive in each `modules/local/*.nf`. Pre-installation is mandatory before the first run.
+> **Important:** modules reference the environments by their **absolute path** (`$HOME/miniforge3/envs/fungiflow-tools` / `fungiflow-medaka` / `fungiflow-checkm2` / `fungiflow-bakta` / `fungiflow-gtdbtk` / `fungiflow-ploidy`), assuming a standard Miniforge/Mambaforge installation under the user's `$HOME` — not by name or by the YAML path (referencing by name alone makes Nextflow try to *install a package* with that name from bioconda, instead of reusing the environment you already created). If your Conda/Mamba is installed somewhere else, adjust the `conda` directive in each `modules/local/*.nf`. Pre-installation is mandatory before the first run.
 
 ---
 
@@ -246,6 +248,7 @@ mamba env list | grep fungiflow
 | `fungiflow-checkm2` | `envs/checkm2.yaml` | checkm2=1.1.0 (**isolated** — real dependency conflict with `fungiflow-tools`, discovered in practice) |
 | `fungiflow-bakta` | `envs/bakta.yaml` | bakta=1.12.0 (installed cleanly on first try — no dependency conflict found) |
 | `fungiflow-gtdbtk` | `envs/gtdbtk.yaml` | gtdbtk=2.7.2 (installed cleanly on first try — no dependency conflict found) |
+| `fungiflow-ploidy` | `envs/ploidy.yaml` | kmc, fastk, genomescope2, smudgeplot — used by the [ploidy/heterozygosity detection](#ploidy--heterozygosity-detection) step |
 
 Medaka is kept in an isolated environment out of necessity, since its dependencies (TensorFlow, ONNX) conflict with bioconda-channel packages. The `setuptools=69.5.1` pin is required because newer versions removed the `pkg_resources` module, which `medaka=1.11.3` depends on.
 
@@ -258,6 +261,8 @@ GTDB-Tk requires the largest of the four databases (~94 GB uncompressed) — als
 AMRFinderPlus (used to pick the right organism-specific database for genomic-surveillance reporting — see `bin/gtdb_to_amrfinder_organism.py`) doesn't get its own conda environment: `fungiflow-bakta` already provides an `amrfinder`/`amrfinder_update` binary as a Bakta dependency, so it's reused directly instead of adding a fifth environment. Its own database (~240 MB, independently versioned from the copy bundled inside Bakta's database, so an update to one doesn't silently change the other) is downloaded the same way as the rest, in the background.
 
 > `NanoComp` comes from the bioconda package **`nanocomp`**, not `nanoplot` (which provides `NanoPlot`, a different tool — a detailed single-dataset report, without comparison).
+
+`smudgeplot=0.5.3` (bioconda) crashes with `pandas>=3.0` (`AttributeError: Can only use .str accessor with string values`, [upstream issue #255](https://github.com/KamilSJaron/smudgeplot/issues/255), still open). `install_envs.sh` applies [`patches/smudgeplot_pandas3_fix.patch`](patches/smudgeplot_pandas3_fix.patch) automatically and idempotently after creating `fungiflow-ploidy` — it locates the installed `smudgeplot.py` and only patches it if the fix isn't already present, so re-running `install_envs.sh` never double-patches.
 
 ---
 
@@ -387,6 +392,9 @@ sample03,,data/A03/r1.fastq.gz,data/A03/r2.fastq.gz,
 | `--min_length` | `500` | Minimum NanoFilt read length (bp) |
 | `--downsample` | `0` | Max reads for assembly (`0` = no limit; e.g. `200000` to save RAM) |
 | `--outdir` | `results` | Output directory |
+| `--ploidy_smudge_l` | `7` | Smudgeplot `-L` cutoff — see [ploidy detection](#ploidy--heterozygosity-detection) |
+| `--ploidy_ab_threshold` | `0.5` | Minimum AB-smudge mass fraction to consider heterozygosity plausible |
+| `--ploidy_coverage_tolerance` | `0.3` | Max relative error between Smudgeplot's and GenomeScope2's coverage estimates |
 
 ---
 
@@ -402,6 +410,71 @@ Runs **automatically on every run**, regardless of which of the 7 flows or mode 
 - NanoStat/NanoComp use the long reads **before `--downsample`** — downsampling is a subsampling reduction, not a quality change, so it's kept out of this comparison (but the NanoFilt quality filter is captured).
 - Short-read-only samples (no `long_reads`) only produce short-read QC (FastQC); hybrid or long-only samples produce both.
 - No new parameters — the thresholds used in the "trimmed" report are the same as `--min_quality`/`--min_length` (NanoFilt) and FASTP's fixed defaults (Q≥20, length≥50bp).
+
+---
+
+## Ploidy / heterozygosity detection
+
+Unlike bacteria, fungi are not reliably haploid: many species are diploid, dikaryotic or outright polyploid, and standard assemblers (Flye, SPAdes/MaSuRCA, Unicycler) silently collapse heterozygous sites into a single pseudo-haploid consensus unless told otherwise. `fungiflow` estimates ploidy/heterozygosity **before assembly**, from k-mer statistics on the cleaned short reads — a diagnostic step, not a montagem — so downstream stages can eventually branch on it (e.g. `Flye --keep-haplotypes`).
+
+Runs **automatically, in parallel with the rest of the pipeline**, right after `FASTP` — it only depends on cleaned short reads, not on any assembly step, so it never blocks or is blocked by Flye/Unicycler.
+
+| Step | Tool | Function |
+|---|---|---|
+| K-mer counting | FastK + Histex | 21-mer histogram from the cleaned short reads (`qc/ploidy/`) |
+| Genome model | GenomeScope2 | Fits a k-mer coverage model — genome size, heterozygosity %, `kmercov` (`qc/ploidy/`) |
+| Ploidy structure | Smudgeplot | Pairs k-mers by coverage to call smudge structures (AB, AAB, AAAB, …) and infer 1n coverage (`qc/ploidy/`) |
+| Combined call | **`bin/ploidy_call.py`** | Cross-checks GenomeScope2 and Smudgeplot into a single `heterozygous_detected` boolean (`qc/ploidy/{sample}.ploidy_call.json`) |
+
+### Why neither tool is trusted alone
+
+At the k-mer coverage typical of these test datasets (~11–12x), each tool can be individually misleading:
+
+- **Smudgeplot's own `-L` cutoff recommendation is unreliable at low coverage.** For both test datasets (haploid and heterozygous), `smudgeplot cutoff <hist> L` suggests `L≈10`. At that cutoff, the haploid dataset's AB smudge looks deceptively clean (70.1% of the mass) — but the 1n coverage Smudgeplot infers from it (22.83) is nearly **2x** GenomeScope2's `kmercov` (11.71). That gap gives it away as noise/paralogy (rDNA repeats, Ty elements, subtelomeric duplicated genes in *S. cerevisiae*), not real heterozygosity — a false positive that looks *more* convincing than a true one.
+- Lowering the cutoff to **`L=7`** (hardcoded default, overridable via `params.ploidy_smudge_l`) fixes this: the haploid dataset's AB smudge drops to 43.7% of the mass (correctly not dominant) with its inferred coverage (11.0) matching GenomeScope2's `kmercov` (11.71) almost exactly.
+
+### The combined criterion
+
+`bin/ploidy_call.py` parses `kmercov` from GenomeScope2's `<prefix>_model.txt` and the `haploid_coverage`/AB-smudge fraction from Smudgeplot's `--json_report`, and only calls `heterozygous_detected = true` when **both signals agree**:
+
+1. the **AB smudge is the majority of the mass** (`ab_fraction >= --ploidy_ab_threshold`, default `0.5`), **AND**
+2. Smudgeplot's inferred 1n coverage is close to GenomeScope2's `kmercov` (relative error `<= --ploidy_coverage_tolerance`, default `0.3`).
+
+Either signal alone is not enough — see above for why the AB fraction on its own is misleading at this coverage range. The full decision logic, with the reasoning behind it, lives in the docstring of [`bin/ploidy_call.py`](bin/ploidy_call.py); the module wiring is in [`modules/local/ploidy.nf`](modules/local/ploidy.nf) (`FASTK_HIST` → `GENOMESCOPE2`/`SMUDGEPLOT` → `PLOIDY_CALL`).
+
+### Validation (2026-08-11)
+
+Tested against the two `genome_test/` Saccharomyces datasets — the only two that differ solely in ploidy, everything else held constant:
+
+| Dataset | GenomeScope2 het% | AB fraction (`L=7`) | Coverage agreement | `heterozygous_detected` |
+|---|---|---|---|---|
+| `saccharomyces_cerevisiae_synthetic` (haploid) | 0.066% (essentially zero — synthetic wgsim error noise) | 43.7% | — (below AB threshold, short-circuits) | **`false`** (correct) |
+| `saccharomyces_cerevisiae_heterozygous` (2 haplotypes, ~1.5% divergence) | 1.63% (target was 1.5%) | 75.6% | 11.0 vs. kmercov 11.67 (~6% error) | **`true`** (correct) |
+
+Both datasets get the right call for the first time with this combined criterion — either signal in isolation had a failure mode (see above).
+
+### Output
+
+```
+results/{sample}/qc/ploidy/
+├── {sample}.histo                    # FastK/Histex k-mer histogram
+├── gs2_out/                          # GenomeScope2 report + <sample>_model.txt
+├── {sample}_smudgeplot_report.json   # Smudgeplot --json_report
+├── {sample}*.png                     # Smudgeplot plots
+└── {sample}.ploidy_call.json         # combined call — the one file downstream steps should read
+```
+
+### Parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `--ploidy_smudge_l` | `7` | Smudgeplot `-L` k-mer coverage cutoff — deliberately **not** the tool's own auto-suggested value, see above |
+| `--ploidy_ab_threshold` | `0.5` | Minimum AB-smudge mass fraction to consider heterozygosity plausible |
+| `--ploidy_coverage_tolerance` | `0.3` | Max relative error allowed between Smudgeplot's inferred 1n coverage and GenomeScope2's `kmercov` |
+
+### What's not done yet
+
+This step only **detects and reports** ploidy/heterozygosity — it doesn't yet act on the result. Planned next: feed `ch_ploidy_call` into the assembler stage (e.g. `Flye --keep-haplotypes` when heterozygosity is detected), add `purge_dups` (post-assembly duplicate haplotig removal) and `nQuire` (post-assembly ploidy confirmation) as a safety net, and surface a Ploidy card on the [comparison dashboard](#comparison-dashboard). Full plan tracked in the project's implementation doc (fungiflow, section 6).
 
 ---
 
@@ -657,7 +730,7 @@ The repository ships with ready-to-use test data in [`genome_test/`](genome_test
 | `mycoplasma_genitalium_synthetic/` | Simulated reads from a real bacterial genome (580 kb) | Quick smoke test (a few minutes) |
 | `staphylococcus_aureus_real/` | **100% real** ONT + Illumina reads, same strain, subsampled to ~25x, against a different strain's reference | Real polishing validation (slower, 2.8 Mb genome) |
 | `saccharomyces_cerevisiae_synthetic/` | Simulated reads from a real haploid/homozygous fungal genome (S288C, ~12.16 Mb) | First fungal smoke test — exercises the generic QC/assembly/polishing path |
-| `saccharomyces_cerevisiae_heterozygous/` | Simulated reads from two ~1.5%-divergent haplotypes of the same genome, combined | Validates the ploidy-detection branch (GenomeScope2/Smudgeplot, purge_dups, nQuire) once implemented |
+| `saccharomyces_cerevisiae_heterozygous/` | Simulated reads from two ~1.5%-divergent haplotypes of the same genome, combined | Validates the [ploidy-detection branch](#ploidy--heterozygosity-detection) (GenomeScope2/Smudgeplot — implemented and validated; purge_dups/nQuire still pending) |
 
 ```bash
 nextflow run fungiflow.nf --t 4 \
@@ -686,16 +759,22 @@ fungiflow/
 │   ├── medaka.yaml           # → fungiflow-medaka (isolated)
 │   ├── checkm2.yaml          # → fungiflow-checkm2 (isolated)
 │   ├── bakta.yaml             # → fungiflow-bakta (also provides amrfinder/amrfinder_update)
-│   └── gtdbtk.yaml            # → fungiflow-gtdbtk
+│   ├── gtdbtk.yaml            # → fungiflow-gtdbtk
+│   └── ploidy.yaml            # → fungiflow-ploidy (kmc, fastk, genomescope2, smudgeplot)
+├── patches/
+│   └── smudgeplot_pandas3_fix.patch  # applied by install_envs.sh, see Conda environments
 ├── bin/
 │   ├── summarize_sample.py           # per-sample dashboard JSON parser
 │   ├── generate_dashboard.py         # aggregates the JSONs, builds dashboard.html
-│   └── gtdb_to_amrfinder_organism.py # matches a GTDB-Tk classification to an AMRFinderPlus --organism value
+│   ├── gtdb_to_amrfinder_organism.py # matches a GTDB-Tk classification to an AMRFinderPlus --organism value
+│   └── ploidy_call.py                # combines GenomeScope2 + Smudgeplot into heterozygous_detected, see Ploidy detection
 ├── assets/
 │   └── dashboard_template.html       # dashboard HTML template (no mock data)
 ├── genome_test/               # ready-to-use test data (see Testing the pipeline)
 │   ├── mycoplasma_genitalium_synthetic/
-│   └── staphylococcus_aureus_real/
+│   ├── staphylococcus_aureus_real/
+│   ├── saccharomyces_cerevisiae_synthetic/
+│   └── saccharomyces_cerevisiae_heterozygous/
 └── modules/local/
     ├── nanofilt.nf
     ├── nanostat.nf        # NANOSTAT_RAW + NANOSTAT_TRIMMED
@@ -715,6 +794,7 @@ fungiflow/
     ├── bakta.nf            # BAKTA
     ├── gtdbtk.nf           # GTDBTK
     ├── amrfinder.nf        # MATCH_ORGANISM + AMRFINDER_PREPOLISH + AMRFINDER_POSTPOLISH
+    ├── ploidy.nf           # FASTK_HIST + GENOMESCOPE2 + SMUDGEPLOT + PLOIDY_CALL
     ├── multiqc.nf          # MULTIQC
     └── dashboard.nf        # SAMPLE_SUMMARY + DASHBOARD
 ```
@@ -744,7 +824,8 @@ results/
     │   ├── busco/busco_output/               short_summary.txt, full_table.tsv, ... (Unicycler path only, without --reference)
     │   ├── checkm2_prepolish/checkm2_output/   quality_report.tsv, ... (Flye path only, always)
     │   ├── checkm2_postpolish/checkm2_output/  quality_report.tsv, ... (Flye path only, always)
-    │   └── checkm2/checkm2_output/           quality_report.tsv, ... (Unicycler path only, always)
+    │   ├── checkm2/checkm2_output/           quality_report.tsv, ... (Unicycler path only, always)
+    │   └── ploidy/                           {sample}.histo, gs2_out/, {sample}_smudgeplot_report.json, {sample}*.png, {sample}.ploidy_call.json (both paths, right after FASTP)
     ├── assembly/
     │   ├── flye/               {sample}.assembly.fasta (+ flye_output/assembly_info.txt)
     │   └── unicycler/          {sample}.assembly.fasta (short-only path)
