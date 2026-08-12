@@ -8,3 +8,6 @@ test_matrix_logs/
 logs/
 db_status/
 __pycache__/
+work_ploidy_test*/
+launch_test*.log
+results/

@@ -10,12 +10,20 @@ process FASTK_HIST {
     tuple val(sample), path(r1), path(r2)
 
     output:
-    tuple val(sample), path("${sample}_fastk.ktab"), path("${sample}.histo"), emit: ktab_histo
+    tuple val(sample), path("fastk_out"), path("${sample}.histo"), emit: ktab_histo
 
     script:
+    // FastK's -N<prefix> writes the real k-mer table as hidden per-thread parts
+    // (.<prefix>.ktab.1 .. .ktab.<T>) alongside the small <prefix>.ktab index —
+    // Smudgeplot's `hetmers` needs all of them present next to each other. A
+    // path() output glob on just the .ktab file silently drops the hidden
+    // parts when Nextflow stages it into downstream tasks (breaks with
+    // "Table part ... is missing" in SMUDGEPLOT), so the whole prefix lives in
+    // its own directory and gets staged as one unit instead.
     """
-    FastK -k21 -T${task.cpus} -M8 -t1 -N${sample}_fastk ${r1} ${r2}
-    Histex -A ${sample}_fastk > ${sample}.histo
+    mkdir -p fastk_out
+    FastK -k21 -T${task.cpus} -M8 -t1 -Nfastk_out/${sample}_fastk ${r1} ${r2}
+    Histex -A fastk_out/${sample}_fastk > ${sample}.histo
     """
 }
 
@@ -26,7 +34,7 @@ process GENOMESCOPE2 {
     publishDir { "${params.outdir}/${sample}/qc/ploidy" }, mode: 'copy'
 
     input:
-    tuple val(sample), path(ktab), path(histo)
+    tuple val(sample), path(ktab_dir), path(histo)
 
     output:
     tuple val(sample), path("gs2_out"), emit: report
@@ -44,7 +52,7 @@ process SMUDGEPLOT {
     publishDir { "${params.outdir}/${sample}/qc/ploidy" }, mode: 'copy'
 
     input:
-    tuple val(sample), path(ktab), path(histo)
+    tuple val(sample), path(ktab_dir), path(histo)
 
     output:
     tuple val(sample), path("${sample}_smudgeplot_report.json"), emit: report
@@ -60,7 +68,7 @@ process SMUDGEPLOT {
     // como default aqui apesar de ser a recomendação da ferramenta.
     def L = params.ploidy_smudge_l ?: 7
     """
-    smudgeplot hetmers -L ${L} -t ${task.cpus} -o ${sample}_kmerpairs ${ktab}
+    smudgeplot hetmers -L ${L} -t ${task.cpus} -o ${sample}_kmerpairs ${ktab_dir}/${sample}_fastk.ktab
     smudgeplot all -o ${sample} -t ${sample} --json_report ${sample}_kmerpairs.smu
     """
 }
