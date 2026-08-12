@@ -19,7 +19,7 @@ BANNER
 echo "Instalador de ambientes"
 echo ""
 
-TOTAL_STEPS=6
+TOTAL_STEPS=7
 CURRENT_STEP=0
 CURRENT_STEP_NAME=""
 STEP_START_TS=0
@@ -83,6 +83,24 @@ step_end
 step_start "Instalando fungiflow-gtdbtk"
 ${PKG} env create -f "${SCRIPT_DIR}/envs/gtdbtk.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/gtdbtk.yaml" --prune
+step_end
+
+step_start "Instalando fungiflow-ploidy (KMC/FastK/GenomeScope2/Smudgeplot)"
+${PKG} env create -f "${SCRIPT_DIR}/envs/ploidy.yaml" --yes || \
+    ${PKG} env update -f "${SCRIPT_DIR}/envs/ploidy.yaml" --prune
+# smudgeplot 0.5.3 (bioconda) quebra com pandas >=3.0 — AttributeError em
+# generate_smudge_table/write_smudge_report (issue upstream ainda aberto:
+# https://github.com/KamilSJaron/smudgeplot/issues/255). Patch idempotente:
+# só aplica se a assinatura do fix ainda não estiver no arquivo instalado.
+SMUDGEPLOT_PY=$(${PKG} run -n fungiflow-ploidy python -c \
+    "import smudgeplot.smudgeplot as m; print(m.__file__)")
+if [ -n "${SMUDGEPLOT_PY}" ] && ! grep -q 'astype({"structure": str})' "${SMUDGEPLOT_PY}"; then
+    echo "    aplicando patch do smudgeplot (bug pandas 3.x)..."
+    patch -p1 -d "$(dirname "$(dirname "${SMUDGEPLOT_PY}")")" \
+        < "${SCRIPT_DIR}/patches/smudgeplot_pandas3_fix.patch"
+else
+    echo "    patch do smudgeplot já aplicado, pulando"
+fi
 step_end
 
 # Bancos de dados (CheckM2 ~1.7GB, Bakta ~84GB, GTDB-Tk ~94GB) são grandes

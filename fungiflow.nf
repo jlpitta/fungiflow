@@ -26,6 +26,7 @@ include { SAMPLE_SUMMARY; DASHBOARD } from './modules/local/dashboard'
 include { BAKTA } from './modules/local/bakta'
 include { GTDBTK } from './modules/local/gtdbtk'
 include { MATCH_ORGANISM; AMRFINDER_PREPOLISH; AMRFINDER_POSTPOLISH } from './modules/local/amrfinder'
+include { FASTK_HIST; GENOMESCOPE2; SMUDGEPLOT; PLOIDY_CALL } from './modules/local/ploidy'
 
 // ─── banner ──────────────────────────────────────────────────────────────────
 // Plain text, no ANSI colors — this also gets written to .nextflow.log and any
@@ -289,6 +290,16 @@ workflow {
     FASTP(ch_sr)
     def ch_sr_clean = FASTP.out.reads
     FASTQC_TRIMMED(ch_sr_clean)
+
+    // ── estimativa de ploidia/heterozigose via k-mer (GenomeScope2 + Smudgeplot) ──
+    // roda em paralelo ao resto do pipeline, so depende dos short reads limpos,
+    // nao de nenhuma etapa de montagem. Criterio combinado (AB dominante E
+    // cobertura batendo com o kmercov do GenomeScope2) documentado em
+    // bin/ploidy_call.py e na secao 6/7 do doc "fungiflow" no Notion.
+    FASTK_HIST(ch_sr_clean)
+    GENOMESCOPE2(FASTK_HIST.out.ktab_histo)
+    SMUDGEPLOT(FASTK_HIST.out.ktab_histo)
+    def ch_ploidy_call = PLOIDY_CALL(GENOMESCOPE2.out.report.join(SMUDGEPLOT.out.report)).call
 
     // ── reference channel for QUAST ──────────────────────────────────────────
     def ch_reference
