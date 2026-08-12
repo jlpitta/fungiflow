@@ -106,6 +106,11 @@ Does the sample have long_reads?
                                                                           (end of run, all samples
                                                                            together)
 
+    (either path — any sample with short reads: right after FASTP² and in parallel with
+     everything above, not gating assembly)
+                Short reads ─► FASTP² ─► [FastK¹¹ → GenomeScope2¹¹/Smudgeplot¹¹ → PLOIDY_CALL¹¹]
+                                          (qc/ploidy/{sample}.ploidy_call.json)
+
 ¹ NanoFilt is bracketed by raw-vs-trimmed QC: NanoStat (before/after) + NanoComp
   (comparative HTML) — always runs in parallel, does not block the flow
 ² FASTP is bracketed by raw-vs-trimmed QC: FastQC (before/after) — always runs
@@ -146,6 +151,11 @@ Does the sample have long_reads?
    classification often has no match in AMRFinderPlus's curated organism
    list (~31 organisms) — that's expected and safe, it just falls back to
    the generic database instead of failing
+¹¹ FastK/GenomeScope2/Smudgeplot/PLOIDY_CALL estimate ploidy/heterozygosity
+   from the cleaned short reads — a diagnostic step, not part of assembly.
+   Runs for any sample with short reads, both paths, right after FASTP,
+   fully in parallel with everything else (never blocks or is blocked by
+   Flye/Unicycler). See Ploidy/heterozygosity detection section below
 ```
 
 See [Read QC](#read-qc-raw-vs-trimmed) for details on where each report is generated.
@@ -177,6 +187,10 @@ See [Read QC](#read-qc-raw-vs-trimmed) for details on where each report is gener
 | AMR (pre-polish) | AMRFinderPlus | Nucleotide-only baseline — Flye path only (`amr/amrfinder_prepolish/`) |
 | Organism match | `gtdb_to_amrfinder_organism.py` | Matches the GTDB-Tk classification to an AMRFinderPlus `--organism` value, or falls back to none (`taxonomy/amrfinder_organism/`) |
 | AMR (post-polish, always) | AMRFinderPlus | Full mode — nucleotide+protein+GFF from Bakta, organism-aware — final assembly, both paths (`amr/amrfinder_postpolish/`) |
+| Ploidy k-mer counting | FastK + Histex | 21-mer histogram from cleaned short reads, right after FASTP, both paths (`qc/ploidy/`) |
+| Ploidy genome model | GenomeScope2 | Genome size, heterozygosity %, `kmercov` from the k-mer histogram (`qc/ploidy/`) |
+| Ploidy structure | Smudgeplot | Calls smudge structures (AB, AAB, …) and infers 1n coverage from k-mer pairs (`qc/ploidy/`) |
+| Ploidy combined call | `bin/ploidy_call.py` | Cross-checks GenomeScope2 + Smudgeplot into `heterozygous_detected` — see [Ploidy/heterozygosity detection](#ploidy--heterozygosity-detection) (`qc/ploidy/{sample}.ploidy_call.json`) |
 | Aggregation (end of run) | MultiQC | Single report combining FastQC, NanoStat, QUAST and CheckM2 from all samples (`multiqc/`) |
 
 ---
