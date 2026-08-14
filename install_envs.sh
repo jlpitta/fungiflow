@@ -85,22 +85,16 @@ ${PKG} env create -f "${SCRIPT_DIR}/envs/gtdbtk.yaml" --yes || \
     ${PKG} env update -f "${SCRIPT_DIR}/envs/gtdbtk.yaml" --prune
 step_end
 
-step_start "Instalando fungiflow-ploidy (KMC/FastK/GenomeScope2/Smudgeplot)"
-${PKG} env create -f "${SCRIPT_DIR}/envs/ploidy.yaml" --yes || \
-    ${PKG} env update -f "${SCRIPT_DIR}/envs/ploidy.yaml" --prune
-# smudgeplot 0.5.3 (bioconda) quebra com pandas >=3.0 — AttributeError em
-# generate_smudge_table/write_smudge_report (issue upstream ainda aberto:
-# https://github.com/KamilSJaron/smudgeplot/issues/255). Patch idempotente:
-# só aplica se a assinatura do fix ainda não estiver no arquivo instalado.
-SMUDGEPLOT_PY=$(${PKG} run -n fungiflow-ploidy python -c \
-    "import smudgeplot.smudgeplot as m; print(m.__file__)")
-if [ -n "${SMUDGEPLOT_PY}" ] && ! grep -q 'astype({"structure": str})' "${SMUDGEPLOT_PY}"; then
-    echo "    aplicando patch do smudgeplot (bug pandas 3.x)..."
-    patch -p1 -d "$(dirname "$(dirname "${SMUDGEPLOT_PY}")")" \
-        < "${SCRIPT_DIR}/patches/smudgeplot_pandas3_fix.patch"
-else
-    echo "    patch do smudgeplot já aplicado, pulando"
+step_start "Instalando ploidycheck (dependência externa — github.com/jlpitta/ploidycheck)"
+# Vive como sibling dir de fungiflow (../ploidycheck), mesma convenção que
+# params.ploidycheck_bin em nextflow.config assume. O install.sh do próprio
+# ploidycheck cuida do env dedicado + patch do smudgeplot — não duplicamos
+# essa lógica aqui.
+PLOIDYCHECK_DIR="${SCRIPT_DIR}/../ploidycheck"
+if [ ! -d "${PLOIDYCHECK_DIR}" ]; then
+    git clone https://github.com/jlpitta/ploidycheck.git "${PLOIDYCHECK_DIR}"
 fi
+(cd "${PLOIDYCHECK_DIR}" && ./install.sh)
 step_end
 
 # Bancos de dados (CheckM2 ~1.7GB, Bakta ~84GB, GTDB-Tk ~94GB) são grandes
@@ -123,7 +117,7 @@ echo ""
 printf "Instalação concluída em %02d:%02d\n" $((TOTAL_ELAPSED / 60)) $((TOTAL_ELAPSED % 60))
 echo ""
 echo "Ambientes instalados:"
-${PKG} env list | grep -E 'fungiflow'
+${PKG} env list | grep -E 'fungiflow|ploidycheck'
 echo ""
 echo "Para usar o nextflow instalado no ambiente, adicione ao seu ~/.bashrc:"
 echo "  alias nextflow='${PKG} run -n fungiflow-tools nextflow'"

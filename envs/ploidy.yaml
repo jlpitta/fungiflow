@@ -1,9 +1,0 @@
-name: fungiflow-ploidy
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - kmc
-  - genomescope2
-  - fastk
-  - smudgeplot
