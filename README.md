@@ -435,7 +435,11 @@ Runs **automatically, in parallel with the rest of the pipeline**, right after `
 
 The method itself (FastK/GenomeScope2/Smudgeplot k-mer profiling, combined-call criterion, `-L` cutoff rationale) lives entirely in the external [ploidycheck](https://github.com/jlpitta/ploidycheck) tool — `modules/local/ploidy.nf`'s `PLOIDY_CHECK` process just invokes it (`params.ploidycheck_bin`, installed as a sibling directory by `install_envs.sh`) and collects its output. This repo no longer keeps its own copy of the FastK→GenomeScope2→Smudgeplot pipeline or the `ploidy_call.py` combination logic — see ploidycheck's own README for the full method, the `-L` cutoff reasoning, and the combined AB-fraction/coverage-agreement criterion (`--ploidy_ab_threshold`/`--ploidy_coverage_tolerance` here map straight through to it).
 
-### Validation (2026-08-11)
+### A gotcha with an already-activated conda
+
+`PLOIDY_CHECK` runs `ploidycheck` under `env -i HOME="$HOME" PATH=/usr/bin:/bin` instead of just letting it inherit the task's environment. Found running the real pipeline via `nextflow run` (not just the binary standalone) on 2026-08-24: if Nextflow itself is launched from a shell that already has a *different* conda/mamba environment active — e.g. `conda activate fungiflow-tools` before `nextflow run`, the documented way to run this pipeline non-interactively (see [Installation](#installation)) — the inherited `mamba` on `PATH` resolved `-n ploidycheck` to the wrong location (`~/.conda/envs/ploidycheck`, which doesn't exist) instead of `~/miniforge3/envs/ploidycheck`, even with the environment correctly installed. ploidycheck's own `find_conda_sh()` fallback (see its README) only kicks in when **no** conda manager is found on `PATH` at all — with one already inherited (even resolving to the wrong place), it never gets a chance to run. Forcing a minimal environment sidesteps this: it reproduces the exact "fresh terminal, nothing activated" scenario `find_conda_sh()` was built for, letting ploidycheck resolve its own installation correctly regardless of what's active in the calling shell.
+
+### Validation (2026-08-11, re-confirmed via real `nextflow run` on 2026-08-24)
 
 Tested against the two `genome_test/` Saccharomyces datasets — the only two that differ solely in ploidy, everything else held constant:
 
